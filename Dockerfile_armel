@@ -47,9 +47,10 @@ ENV ServerIP 0.0.0.0
 ENV FTL_CMD no-daemon
 ENV DNSMASQ_USER root
 
-ENV VERSION v4.3.1
+ENV VERSION v4.3.2
 ENV ARCH armel
 ENV PATH /opt/pihole:${PATH}
+
 
 LABEL image="samndotbiz/pihole:v4.3.1_armel"
 

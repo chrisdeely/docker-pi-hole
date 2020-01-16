@@ -15,12 +15,14 @@ Options:
 
 Examples:
 """
+from __future__ import print_function
 
 from docopt import docopt
 from jinja2 import Environment, FileSystemLoader
 from docopt import docopt
 import os
-import testinfra
+import subprocess
+import sys
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -64,7 +66,7 @@ images = {
 
 def generate_dockerfiles(args):
     if args['--no-generate']:
-        print " ::: Skipping Dockerfile generation"
+        print(" ::: Skipping Dockerfile generation")
         return
 
     for version, archs in images.iteritems():
@@ -92,22 +94,18 @@ def generate_dockerfiles(args):
 
 def build_dockerfiles(args):
     if args['--no-build']:
-        print " ::: Skipping Dockerfile building"
+        print(" ::: Skipping Dockerfile building")
         return
 
     for arch in args['--arch']:
         # TODO: include from external .py that can be shared with Dockerfile.py / Tests / deploy scripts '''
         if arch == 'armel':
-            print "Skipping armel, incompatible upstream binaries/broken"
+            print("Skipping armel, incompatible upstream binaries/broken")
             continue
         build('pihole', arch, args)
 
 
 def build(docker_repo, arch, args):
-    run_local = testinfra.get_backend(
-        "local://"
-    ).get_module("Command").run
-
     dockerfile = 'Dockerfile_{}'.format(arch)
     repo_tag = '{}:{}_{}'.format(docker_repo, __version__, arch)
     cached_image = '{}/{}'.format('pihole', repo_tag)
@@ -119,17 +117,18 @@ def build(docker_repo, arch, args):
         no_cache = '--no-cache'
     build_command = '{time}docker build {no_cache} --pull --cache-from="{cache},{create_tag}" -f {dockerfile} -t {create_tag} .'\
         .format(time=time, no_cache=no_cache, cache=cached_image, dockerfile=dockerfile, create_tag=repo_tag)
-    print " ::: Building {} into {}".format(dockerfile, repo_tag)
+    print(" ::: Building {} into {}".format(dockerfile, repo_tag))
     if args['-v']:
-        print build_command, '\n'
-    build_result = run_local(build_command) 
+        print(build_command, '\n')
+    build_result = subprocess.Popen(build_command.split(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     if args['-v']:
-        print build_result.stdout
-        print build_result.stderr
-    if build_result.rc != 0:
-        print "     ::: Building {} encountered an error".format(dockerfile)
-        print build_result.stderr
-    assert build_result.rc == 0
+        for c in iter(lambda: build_result.stdout.read(1), b''):
+            sys.stdout.write(c)
+    build_result.wait()
+    if build_result.returncode != 0:
+        print("     ::: Building {} encountered an error".format(dockerfile))
+        print(build_result.stderr)
+    assert build_result.returncode == 0
 
 
 if __name__ == '__main__':
